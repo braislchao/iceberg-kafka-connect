@@ -30,7 +30,6 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -423,7 +422,7 @@ public class RecordConverter {
     if (value instanceof Number) {
       long millis = ((Number) value).longValue();
       return DateTimeUtil.timestampFromMicros(millis * 1000);
-    } 
+    }
     throw new RuntimeException("Cannot convert time: " + value);
   }
 
