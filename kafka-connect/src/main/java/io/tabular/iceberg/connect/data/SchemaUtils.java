@@ -242,7 +242,7 @@ public class SchemaUtils {
             if (valueSchema.name().equals(Date.LOGICAL_NAME)) {
               return DateType.get();
             } else if (valueSchema.name().equals(Time.LOGICAL_NAME)) {
-              return TimeType.get();
+              return TimestampType.withZone();
             }
           }
           return IntegerType.get();

@@ -419,18 +419,11 @@ public class RecordConverter {
     throw new RuntimeException("Cannot convert date: " + value);
   }
 
-  protected LocalTime convertTimeValue(Object value) {
+  protected LocalDateTime convertTimeValue(Object value) {
     if (value instanceof Number) {
       long millis = ((Number) value).longValue();
-      return DateTimeUtil.timeFromMicros(millis * 1000);
-    } else if (value instanceof String) {
-      return LocalTime.parse((String) value);
-    } else if (value instanceof LocalTime) {
-      return (LocalTime) value;
-    } else if (value instanceof Date) {
-      long millis = ((Date) value).getTime();
-      return DateTimeUtil.timeFromMicros(millis * 1000);
-    }
+      return DateTimeUtil.timestampFromMicros(millis * 1000);
+    } 
     throw new RuntimeException("Cannot convert time: " + value);
   }
 
