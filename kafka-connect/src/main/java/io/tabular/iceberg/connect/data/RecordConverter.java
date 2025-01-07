@@ -420,6 +420,7 @@ public class RecordConverter {
 
   protected LocalDateTime convertTimeValue(Object value) {
     if (value instanceof Number) {
+      // forcing only timestampFromMicros to work with events from Debezium
       long millis = ((Number) value).longValue();
       return DateTimeUtil.timestampFromMicros(millis * 1000);
     }

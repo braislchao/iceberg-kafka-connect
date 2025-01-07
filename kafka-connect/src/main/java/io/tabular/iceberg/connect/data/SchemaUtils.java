@@ -242,6 +242,7 @@ public class SchemaUtils {
             if (valueSchema.name().equals(Date.LOGICAL_NAME)) {
               return DateType.get();
             } else if (valueSchema.name().equals(Time.LOGICAL_NAME)) {
+              // force TimestampType for Spark compatibility
               return TimestampType.withZone();
             }
           }
