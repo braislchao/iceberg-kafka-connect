@@ -136,7 +136,11 @@ public class RecordConverter {
       case DATE:
         return convertDateValue(value);
       case TIME:
-        return convertTimeValue(value);
+        if (config.schemaTimeHandle().equals("timestamp")){
+          return convertTimeValueToTimestamp(value);
+        } else {
+          return convertTimeValue(value);
+        }
       case TIMESTAMP:
         return convertTimestampValue(value, (TimestampType) type);
     }
@@ -419,7 +423,22 @@ public class RecordConverter {
     throw new RuntimeException("Cannot convert date: " + value);
   }
 
-  protected LocalDateTime convertTimeValue(Object value) {
+  protected LocalTime convertTimeValue(Object value) {
+    if (value instanceof Number) {
+      long millis = ((Number) value).longValue();
+      return DateTimeUtil.timeFromMicros(millis * 1000);
+    } else if (value instanceof String) {
+      return LocalTime.parse((String) value);
+    } else if (value instanceof LocalTime) {
+      return (LocalTime) value;
+    } else if (value instanceof Date) {
+      long millis = ((Date) value).getTime();
+      return DateTimeUtil.timeFromMicros(millis * 1000);
+    }
+    throw new RuntimeException("Cannot convert time: " + value);
+  }
+
+  protected LocalDateTime convertTimeValueToTimestamp(Object value) {
     // forcing only timestampFromMicros to work with events from Debezium
     if (value instanceof Number) {
       long millis = ((Number) value).longValue();
