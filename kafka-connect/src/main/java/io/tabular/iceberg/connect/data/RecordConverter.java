@@ -30,6 +30,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -419,9 +420,17 @@ public class RecordConverter {
   }
 
   protected LocalDateTime convertTimeValue(Object value) {
+    // forcing only timestampFromMicros to work with events from Debezium
     if (value instanceof Number) {
-      // forcing only timestampFromMicros to work with events from Debezium
       long millis = ((Number) value).longValue();
+      return DateTimeUtil.timestampFromMicros(millis * 1000);
+    } else if (value instanceof String) {
+      LocalTime time = LocalTime.parse((String) value);
+      return LocalDateTime.of(LocalDate.of(1970, 1, 1), time);
+    } else if (value instanceof LocalTime) {
+      return LocalDateTime.of(LocalDate.of(1970, 1, 1), (LocalTime) value);
+    } else if (value instanceof Date) {
+      long millis = ((Date) value).getTime();
       return DateTimeUtil.timestampFromMicros(millis * 1000);
     }
     throw new RuntimeException("Cannot convert time: " + value);
