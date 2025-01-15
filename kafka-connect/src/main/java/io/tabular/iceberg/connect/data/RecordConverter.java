@@ -136,7 +136,7 @@ public class RecordConverter {
       case DATE:
         return convertDateValue(value);
       case TIME:
-        if (config.schemaTimeHandle().equals("timestamp")){
+        if ("timestamp".equals(config.timeCompatiblity())){
           return convertTimeValueToTimestamp(value);
         } else {
           return convertTimeValue(value);
@@ -439,7 +439,6 @@ public class RecordConverter {
   }
 
   protected LocalDateTime convertTimeValueToTimestamp(Object value) {
-    // forcing only timestampFromMicros to work with events from Debezium
     if (value instanceof Number) {
       long millis = ((Number) value).longValue();
       return DateTimeUtil.timestampFromMicros(millis * 1000);

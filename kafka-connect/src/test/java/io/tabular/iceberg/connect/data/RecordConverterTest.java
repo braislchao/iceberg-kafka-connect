@@ -461,6 +461,29 @@ public class RecordConverterTest {
   }
 
   @Test
+  public void testTimeConversionToTimestamp() {
+      Table table = mock(Table.class);
+      when(table.schema()).thenReturn(SIMPLE_SCHEMA);
+      RecordConverter converter = new RecordConverter(table, config);
+
+      LocalDateTime expected = LocalDateTime.of(1970, 1, 1, 7, 51, 30, 888_000_000);
+
+      List<Object> inputList =
+      ImmutableList.of(
+          "07:51:30.888",
+          LocalTime.of(7, 51, 30, 888_000_000),
+          expected.toLocalTime(),
+          new Date(expected.toInstant(ZoneOffset.UTC).toEpochMilli()));
+
+      inputList.forEach(
+          input -> {
+              LocalDateTime timestamp = converter.convertTimeValueToTimestamp(input);
+              assertThat(timestamp).isEqualTo(expected);
+          }
+      );
+  }
+
+  @Test
   public void testTimestampWithZoneConversion() {
     OffsetDateTime expected = OffsetDateTime.parse("2023-05-18T11:22:33Z");
     long expectedMillis = expected.toInstant().toEpochMilli();
