@@ -41,6 +41,7 @@ public class DebeziumTransform<R extends ConnectRecord<R>> implements Transforma
   private static final Logger LOG = LoggerFactory.getLogger(DebeziumTransform.class.getName());
 
   private static final String CDC_TARGET_PATTERN = "cdc.target.pattern";
+  private static final String CDC_OFFSET_START = "cdc.offset.start";
   private static final String DB_PLACEHOLDER = "{db}";
   private static final String TABLE_PLACEHOLDER = "{table}";
 
@@ -51,14 +52,22 @@ public class DebeziumTransform<R extends ConnectRecord<R>> implements Transforma
               ConfigDef.Type.STRING,
               null,
               Importance.MEDIUM,
-              "Pattern to use for setting the CDC target field value.");
+              "Pattern to use for setting the CDC target field value.")
+          .define(
+              CDC_OFFSET_START,
+              ConfigDef.Type.LONG,
+              0L,
+              Importance.LOW,
+              "Value to add to the Kafka offset when populating the CDC offset field.");
 
   private String cdcTargetPattern;
+  private long cdcOffsetStart;
 
   @Override
   public void configure(Map<String, ?> props) {
     SimpleConfig config = new SimpleConfig(CONFIG_DEF, props);
     cdcTargetPattern = config.getString(CDC_TARGET_PATTERN);
+    cdcOffsetStart = config.getLong(CDC_OFFSET_START);
   }
 
   @Override
@@ -93,7 +102,7 @@ public class DebeziumTransform<R extends ConnectRecord<R>> implements Transforma
     cdcMetadata.put(CdcConstants.COL_OP, op);
     cdcMetadata.put(CdcConstants.COL_TS, new java.util.Date(value.getInt64("ts_ms")));
     if (record instanceof SinkRecord) {
-      cdcMetadata.put(CdcConstants.COL_OFFSET, ((SinkRecord) record).kafkaOffset());
+      cdcMetadata.put(CdcConstants.COL_OFFSET, ((SinkRecord) record).kafkaOffset() + cdcOffsetStart);
     }
     setTableAndTargetFromSourceStruct(value.getStruct("source"), cdcMetadata);
 
@@ -143,7 +152,7 @@ public class DebeziumTransform<R extends ConnectRecord<R>> implements Transforma
     cdcMetadata.put(CdcConstants.COL_OP, op);
     cdcMetadata.put(CdcConstants.COL_TS, value.get("ts_ms"));
     if (record instanceof SinkRecord) {
-      cdcMetadata.put(CdcConstants.COL_OFFSET, ((SinkRecord) record).kafkaOffset());
+      cdcMetadata.put(CdcConstants.COL_OFFSET, ((SinkRecord) record).kafkaOffset() + cdcOffsetStart);
     }
     setTableAndTargetFromSourceMap(value.get("source"), cdcMetadata);
 
