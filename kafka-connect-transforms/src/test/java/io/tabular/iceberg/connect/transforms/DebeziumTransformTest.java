@@ -86,9 +86,30 @@ public class DebeziumTransformTest {
 
       Map<String, Object> cdcMetadata = (Map<String, Object>) value.get("_cdc");
       assertThat(cdcMetadata.get("op")).isEqualTo("U");
+      assertThat(cdcMetadata.get("offset")).isEqualTo(0L);
       assertThat(cdcMetadata.get("source")).isEqualTo("schema.tbl");
       assertThat(cdcMetadata.get("target")).isEqualTo("schema_x.tbl_x");
       assertThat(cdcMetadata.get("key")).isInstanceOf(Map.class);
+    }
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testDebeziumTransformSchemalessWithOffsetStart() {
+    try (DebeziumTransform<SinkRecord> smt = new DebeziumTransform<>()) {
+      smt.configure(
+          ImmutableMap.of(
+              "cdc.target.pattern", "{db}_x.{table}_x",
+              "cdc.offset.start", 100000000L));
+
+      Map<String, Object> event = createDebeziumEventMap("u");
+      Map<String, Object> key = ImmutableMap.of("account_id", 1L);
+      SinkRecord record = new SinkRecord("topic", 0, null, key, null, event, 5);
+
+      SinkRecord result = smt.apply(record);
+      Map<String, Object> value = (Map<String, Object>) result.value();
+      Map<String, Object> cdcMetadata = (Map<String, Object>) value.get("_cdc");
+      assertThat(cdcMetadata.get("offset")).isEqualTo(100000005L);
     }
   }
 
@@ -109,9 +130,29 @@ public class DebeziumTransformTest {
 
       Struct cdcMetadata = value.getStruct("_cdc");
       assertThat(cdcMetadata.get("op")).isEqualTo("U");
+      assertThat(cdcMetadata.get("offset")).isEqualTo(0L);
       assertThat(cdcMetadata.get("source")).isEqualTo("schema.tbl");
       assertThat(cdcMetadata.get("target")).isEqualTo("schema_x.tbl_x");
       assertThat(cdcMetadata.get("key")).isInstanceOf(Struct.class);
+    }
+  }
+
+  @Test
+  public void testDebeziumTransformWithSchemaAndOffsetStart() {
+    try (DebeziumTransform<SinkRecord> smt = new DebeziumTransform<>()) {
+      smt.configure(
+          ImmutableMap.of(
+              "cdc.target.pattern", "{db}_x.{table}_x",
+              "cdc.offset.start", 100000000L));
+
+      Struct event = createDebeziumEventStruct("u");
+      Struct key = new Struct(KEY_SCHEMA).put("account_id", 1L);
+      SinkRecord record = new SinkRecord("topic", 0, KEY_SCHEMA, key, VALUE_SCHEMA, event, 5);
+
+      SinkRecord result = smt.apply(record);
+      Struct value = (Struct) result.value();
+      Struct cdcMetadata = value.getStruct("_cdc");
+      assertThat(cdcMetadata.get("offset")).isEqualTo(100000005L);
     }
   }
 
