@@ -18,16 +18,24 @@
  */
 package io.tabular.iceberg.connect.transforms;
 
+import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList;
+import org.apache.iceberg.relocated.com.google.common.collect.ImmutableSet;
 import org.apache.iceberg.relocated.com.google.common.collect.Maps;
+import org.apache.iceberg.relocated.com.google.common.collect.Sets;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
+import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.connect.connector.ConnectRecord;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.data.Timestamp;
+import org.apache.kafka.connect.header.Header;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.transforms.Transformation;
 import org.apache.kafka.connect.transforms.util.Requirements;
@@ -42,6 +50,7 @@ public class DebeziumTransform<R extends ConnectRecord<R>> implements Transforma
 
   private static final String CDC_TARGET_PATTERN = "cdc.target.pattern";
   private static final String CDC_OFFSET_START = "cdc.offset.start";
+  private static final String CDC_HEADERS = "cdc.headers";
   private static final String DB_PLACEHOLDER = "{db}";
   private static final String TABLE_PLACEHOLDER = "{table}";
 
@@ -58,16 +67,45 @@ public class DebeziumTransform<R extends ConnectRecord<R>> implements Transforma
               ConfigDef.Type.LONG,
               0L,
               Importance.LOW,
-              "Value to add to the Kafka offset when populating the CDC offset field.");
+              "Value to add to the Kafka offset when populating the CDC offset field.")
+          .define(
+              CDC_HEADERS,
+              ConfigDef.Type.LIST,
+              ImmutableList.of(),
+              Importance.LOW,
+              "Kafka record headers to copy into the CDC metadata. Each named header becomes a "
+                  + "field of the same name holding that header's value, or null when the record "
+                  + "does not carry it.");
+
+  private static final Set<String> RESERVED_FIELDS =
+      ImmutableSet.of(
+          CdcConstants.COL_OP,
+          CdcConstants.COL_TS,
+          CdcConstants.COL_OFFSET,
+          CdcConstants.COL_SOURCE,
+          CdcConstants.COL_TARGET,
+          CdcConstants.COL_KEY);
 
   private String cdcTargetPattern;
   private long cdcOffsetStart;
+  private List<String> cdcHeaders;
 
   @Override
   public void configure(Map<String, ?> props) {
     SimpleConfig config = new SimpleConfig(CONFIG_DEF, props);
     cdcTargetPattern = config.getString(CDC_TARGET_PATTERN);
     cdcOffsetStart = config.getLong(CDC_OFFSET_START);
+    cdcHeaders = config.getList(CDC_HEADERS);
+
+    Set<String> seen = Sets.newHashSet();
+    for (String header : cdcHeaders) {
+      if (RESERVED_FIELDS.contains(header)) {
+        throw new ConfigException(CDC_HEADERS, header, "shadows an existing CDC metadata field");
+      }
+      if (!seen.add(header)) {
+        throw new ConfigException(CDC_HEADERS, header, "listed more than once");
+      }
+    }
   }
 
   @Override
@@ -108,6 +146,9 @@ public class DebeziumTransform<R extends ConnectRecord<R>> implements Transforma
 
     if (record.keySchema() != null) {
       cdcMetadata.put(CdcConstants.COL_KEY, record.key());
+    }
+    for (String header : cdcHeaders) {
+      cdcMetadata.put(header, headerValue(record, header));
     }
 
     // create the new value
@@ -158,6 +199,9 @@ public class DebeziumTransform<R extends ConnectRecord<R>> implements Transforma
 
     if (record.key() instanceof Map) {
       cdcMetadata.put(CdcConstants.COL_KEY, record.key());
+    }
+    for (String header : cdcHeaders) {
+      cdcMetadata.put(header, headerValue(record, header));
     }
 
     // create the new value
@@ -235,7 +279,23 @@ public class DebeziumTransform<R extends ConnectRecord<R>> implements Transforma
       builder.field(CdcConstants.COL_KEY, keySchema);
     }
 
+    for (String header : cdcHeaders) {
+      builder.field(header, Schema.OPTIONAL_STRING_SCHEMA);
+    }
+
     return builder.build();
+  }
+
+  private String headerValue(R record, String name) {
+    Header header = record.headers().lastWithName(name);
+    if (header == null || header.value() == null) {
+      return null;
+    }
+    Object value = header.value();
+    if (value instanceof byte[]) {
+      return new String((byte[]) value, StandardCharsets.UTF_8);
+    }
+    return value.toString();
   }
 
   private Schema makeUpdatedSchema(Schema schema, Schema cdcSchema) {
