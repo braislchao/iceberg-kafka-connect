@@ -1,0 +1,6 @@
+plugin/
+secrets/
+.venv/
+local_*
+prod_*
+replay.out
