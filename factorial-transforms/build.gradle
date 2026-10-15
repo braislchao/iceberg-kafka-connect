@@ -1,0 +1,39 @@
+// Our patched DebeziumTransform for the Apache Iceberg Kafka Connect sink. The jar goes into
+// the sink plugin's lib/ directory, so it shares that plugin's classloader and every
+// dependency below is provided by it at runtime.
+plugins {
+  id 'java-library'
+}
+
+ext.icebergVersion = '1.12.0'
+ext.kafkaVersion = '3.9.2'
+
+version = "${icebergVersion}-factorial.1"
+
+java {
+  toolchain { languageVersion = JavaLanguageVersion.of(17) }
+}
+
+repositories {
+  mavenCentral()
+}
+
+dependencies {
+  compileOnly "org.apache.iceberg:iceberg-kafka-connect-transforms:${icebergVersion}"
+  compileOnly "org.apache.iceberg:iceberg-bundled-guava:${icebergVersion}"
+  compileOnly "org.apache.kafka:connect-api:${kafkaVersion}"
+  compileOnly "org.apache.kafka:connect-transforms:${kafkaVersion}"
+  compileOnly 'org.slf4j:slf4j-api:2.0.18'
+
+  testImplementation 'org.junit.jupiter:junit-jupiter:5.14.4'
+  testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.14.4'
+  testImplementation 'org.assertj:assertj-core:3.27.7'
+}
+
+configurations {
+  testImplementation.extendsFrom compileOnly
+}
+
+test {
+  useJUnitPlatform()
+}
